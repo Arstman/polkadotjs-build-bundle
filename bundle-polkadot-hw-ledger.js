@@ -9408,7 +9408,7 @@
 		hasRequiredPackageInfo = 1;
 		Object.defineProperty(packageInfo, "__esModule", { value: true });
 		packageInfo.packageInfo = void 0;
-		packageInfo.packageInfo = { name: '@polkadot/hw-ledger-transports', path: typeof __dirname === 'string' ? __dirname : 'auto', type: 'cjs', version: '14.0.2' };
+		packageInfo.packageInfo = { name: '@polkadot/hw-ledger-transports', path: typeof __dirname === 'string' ? __dirname : 'auto', type: 'cjs', version: '14.0.3' };
 		return packageInfo;
 	}
 
@@ -9496,6 +9496,15 @@
 	    }
 	    return result;
 	}
+	async function closeTransport$1(transport) {
+	    if (transport) {
+	        try {
+	            await transport.close();
+	        }
+	        catch {
+	        }
+	    }
+	}
 	function sign$1(method, message, accountOffset = 0, addressOffset = 0, { account = LEDGER_DEFAULT_ACCOUNT, addressIndex = LEDGER_DEFAULT_INDEX, change = LEDGER_DEFAULT_CHANGE } = {}) {
 	    return async (app) => {
 	        const { signature } = await wrapError$1(app[method](account + accountOffset, change, addressIndex + addressOffset, util$1.u8aToBuffer(message)));
@@ -9545,15 +9554,22 @@
 	    async signRaw(message, accountOffset, addressOffset, options) {
 	        return this.withApp(sign$1('signRaw', util$1.u8aWrapBytes(message), accountOffset, addressOffset, options));
 	    }
+	    async disconnect() {
+	        const app = this.#app;
+	        this.#app = null;
+	        await closeTransport$1(app?.transport || null);
+	    }
 	    async withApp(fn) {
+	        let transport = null;
 	        try {
 	            if (!this.#app) {
-	                const transport = await this.#transportDef.create();
+	                transport = await this.#transportDef.create();
 	                this.#app = dist$1.newSubstrateApp(transport, this.#ledgerName);
 	            }
 	            return await fn(this.#app);
 	        }
 	        catch (error) {
+	            await closeTransport$1(this.#app?.transport || transport);
 	            this.#app = null;
 	            throw error;
 	        }
@@ -9572,6 +9588,15 @@
 	        throw new Error(e.message);
 	    }
 	    return result;
+	}
+	async function closeTransport(transport) {
+	    if (transport) {
+	        try {
+	            await transport.close();
+	        }
+	        catch {
+	        }
+	    }
 	}
 	function sign(method, message, slip44, accountIndex = 0, addressOffset = 0) {
 	    const bip42Path = `m/44'/${slip44}'/${accountIndex}'/${0}'/${addressOffset}'`;
@@ -9687,15 +9712,22 @@
 	    async signWithMetadataEcdsa(message, accountIndex, addressOffset, options) {
 	        return this.withApp(signWithMetadataEcdsa(message, this.#slip44, accountIndex, addressOffset, options));
 	    }
+	    async disconnect() {
+	        const app = this.#app;
+	        this.#app = null;
+	        await closeTransport(app?.transport || null);
+	    }
 	    async withApp(fn) {
+	        let transport = null;
 	        try {
 	            if (!this.#app) {
-	                const transport = await this.#transportDef.create();
+	                transport = await this.#transportDef.create();
 	                this.#app = new dist$1.PolkadotGenericApp(transport, this.#chainId, this.#metaUrl);
 	            }
 	            return await fn(this.#app);
 	        }
 	        catch (error) {
+	            await closeTransport(this.#app?.transport || transport);
 	            this.#app = null;
 	            throw error;
 	        }
